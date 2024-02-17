@@ -40,7 +40,7 @@ def closest_color(rgb):
     """Find the closest color in the palette to the given color."""
     return min(palette.keys(), key=lambda color: color_distance(color, rgb))
 
-def image_to_txt(image_file, txt_file, option):
+def image_to_txt(image_file, txt_file, duplicate_rows, add_empty_rows, empty_lines_increase, empty_lines_decrease):
     txt_lines = []
     with Image.open(image_file) as img:
         img = img.convert('RGB')
@@ -52,58 +52,150 @@ def image_to_txt(image_file, txt_file, option):
                 pixel = img.getpixel((x, y))
                 closest = closest_color(pixel)
                 front_row += palette[closest]
-                rear_row += rear_bed_palette[closest]
+                if duplicate_rows:
+                    rear_row += rear_bed_palette[closest]
 
             txt_lines.append(front_row)
-            if option == 'duplicate_rows':
+            if duplicate_rows:
                 txt_lines.append(rear_row)
 
-    if option == 'add_empty_rows':
-        txt_lines = add_empty_rows_if_needed(txt_lines)
+    if add_empty_rows:
+        txt_lines = add_empty_rows_if_needed(txt_lines, empty_lines_increase, empty_lines_decrease)
 
     for line in txt_lines:
         txt_file.write(line + '\n')
 
-def add_empty_rows_if_needed(txt_lines):
+def add_empty_rows_if_needed(txt_lines, increase, decrease):
     result = []
     for i in range(len(txt_lines)):
         result.append(txt_lines[i])
         if i < len(txt_lines) - 1:
             current_count = txt_lines[i].count(' ')
             next_count = txt_lines[i + 1].count(' ')
-            if current_count != next_count:
-                empty_line = '$' * len(txt_lines[i])
-                result.extend([empty_line, empty_line])
+            if current_count < next_count:
+                for _ in range(increase):
+                    result.append('$' * len(txt_lines[i]))
+            elif current_count > next_count:
+                for _ in range(decrease):
+                    result.append('$' * len(txt_lines[i]))
     return result
 
 @application.route('/')
 def upload_form():
     return '''
         <!doctype html>
+        <html>
         <head>
         <title>Upload Image</title>
         <style>
-            input:not([type="file"]), select { margin-left: 20px; }
+            body {
+                padding: 20px;
+                font-family: sans-serif;
+                background: lightblue;
+                text-align: center;
+            }
+            h1 {
+                color: navy;
+            }
+            form {
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                display: inline-block;
+                text-align: left;
+            }
+            .form-group {
+                margin-bottom: 10px;
+            }
+            .number-options {
+                display: none;
+                overflow: hidden;
+            }
+            label {
+                display: inline-block;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            input[type="file"] {
+                border: 1px solid #ddd;
+                padding: 8px;
+                border-radius: 4px;
+            }
+            input[type="checkbox"], input[type="number"] {
+                margin-right: 10px;
+            }
+            input[type="number"] {
+                width: 30px;
+            }
+            input[type="submit"] {
+                background: navy;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+            }
+            input[type="submit"]:hover {
+                background: darkblue;
+            }
         </style>
         </head>
-        <body style="padding: 20px; font-family: sans-serif; background: lightblue">
+        <body>
         <h1>Convert bmp, png, gif to txt file</h1>
-        <form method=post enctype=multipart/form-data>
-          <input type="file" name="file" accept=".png, .gif, .bmp">
-          <select name="option">
-            <option value="none">No additional option</option>
-            <option value="duplicate_rows">Duplicate rows to rear bed</option>
-            <option value="add_empty_rows">Add space for de-/increase edits</option>
-          </select>
-          <input type="submit" value="Convert">
+        <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Select Image File (PNG, GIF, BMP):</label>
+                <input type="file" name="file" accept=".png, .gif, .bmp">
+            </div>
+            <div class="form-group">
+                <input type="checkbox" name="duplicate_rows" value="duplicate_rows" id="duplicate_rows">
+                <label for="duplicate_rows">Duplicate rows to rear bed</label>
+            </div>
+            <div class="form-group">
+                <input type="checkbox" name="add_empty_rows" value="add_empty_rows" id="add_empty_rows" onclick="toggleNumberOptions()">
+                <label for="add_empty_rows">Add space for de-/increase edits</label>
+            </div>
+            <div class="number-options">
+                <div class="form-group">
+                    <label>Number of empty lines for increase edits:</label>
+                    <input type="number" name="empty_lines_increase" value="1" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Number of empty lines for decrease edits:</label>
+                    <input type="number" name="empty_lines_decrease" value="4" min="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Convert">
+            </div>
         </form>
-        </body>
-        '''
 
+        <script>
+            function toggleNumberOptions() {
+                var checkBox = document.getElementById("add_empty_rows");
+                var numberOptions = document.querySelector(".number-options");
+                if (checkBox.checked) {
+                    numberOptions.style.display = "block";
+                    numberOptions.style.height = "auto";
+                } else {
+                    numberOptions.style.display = "none";
+                    numberOptions.style.height = "0";
+                }
+            }
+        </script>
+
+        </body>
+        </html>
+        '''
 @application.route('/', methods=['POST'])
 def handle_upload():
     file = request.files['file']
-    option = request.form.get('option', 'none')
+
+    duplicate_rows = 'duplicate_rows' in request.form
+    add_empty_rows = 'add_empty_rows' in request.form
+    empty_lines_increase = int(request.form.get('empty_lines_increase', 1))
+    empty_lines_decrease = int(request.form.get('empty_lines_decrease', 1))
 
     if file and allowed_file(file.filename):
         mime = mimetypes.guess_type(file.filename)[0]
@@ -118,7 +210,7 @@ def handle_upload():
             in_memory_file.seek(0)
 
             txt_output = StringIO()
-            image_to_txt(in_memory_file, txt_output, option)
+            image_to_txt(in_memory_file, txt_output, duplicate_rows, add_empty_rows, empty_lines_increase, empty_lines_decrease)
             txt_content = txt_output.getvalue()
             txt_output.close()
 
