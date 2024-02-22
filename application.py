@@ -36,14 +36,19 @@ def color_distance(c1, c2):
     lab2 = rgb_to_lab(c2)
     return math.sqrt((lab1.lab_l - lab2.lab_l) ** 2 + (lab1.lab_a - lab2.lab_a) ** 2 + (lab1.lab_b - lab2.lab_b) ** 2)
 
-def closest_color(rgb):
-    """Find the closest color in the palette to the given color."""
-    return min(palette.keys(), key=lambda color: color_distance(color, rgb))
+def closest_color(rgba):
+    """Find the closest color in the palette, treating transparent pixels as white."""
+    # Check if the alpha value (transparency) is below a certain threshold
+    if rgba[3] < 128:  # Assuming 0 is fully transparent and 255 is fully opaque
+        return (255, 255, 255)  # Treat as white
+    else:
+        rgb = rgba[:3]
+        return min(palette.keys(), key=lambda color: color_distance(color, rgb))
 
 def image_to_txt(image_file, txt_file, duplicate_rows, add_empty_rows, empty_lines_increase, empty_lines_decrease):
     txt_lines = []
     with Image.open(image_file) as img:
-        img = img.convert('RGB')
+        img = img.convert('RGBA')
 
         for y in range(img.height):
             front_row = ''
