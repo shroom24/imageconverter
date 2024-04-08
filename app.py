@@ -6,8 +6,8 @@ from werkzeug.utils import secure_filename
 from colormath.color_objects import sRGBColor, LabColor
 from colormath.color_conversions import convert_color
 
-application = Flask(__name__)
-application.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # Limit file size to 5MB
+app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # Limit file size to 5MB
 
 palette = {
     (0, 0, 0): '-',       # Black
@@ -233,4 +233,4 @@ def handle_upload():
         return "File type not allowed. Please upload PNG, GIF, or BMP files.", 400
 
 if __name__ == "__main__":
-    application.run()
+    app.run()
