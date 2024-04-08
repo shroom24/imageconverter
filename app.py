@@ -85,7 +85,7 @@ def add_empty_rows_if_needed(txt_lines, increase, decrease):
                     result.append('$' * len(txt_lines[i]))
     return result
 
-@application.route('/')
+@app.route('/')
 def upload_form():
     return '''
         <!doctype html>
@@ -193,7 +193,7 @@ def upload_form():
         </body>
         </html>
         '''
-@application.route('/', methods=['POST'])
+@app.route('/', methods=['POST'])
 def handle_upload():
     file = request.files['file']
 
